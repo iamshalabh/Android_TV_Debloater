@@ -32,6 +32,8 @@ final class Config {
     static final String WALLPAPER_NAME = "wallpaper.jpg";
 
     final List<String> dockApps;
+    /** Grid order after the dock (config.xml app_order, or a theme's config.json). */
+    final List<String> appOrder;
     final List<String> hiddenApps;
     final String liveTvPackage;
     final String liveTvAction;
@@ -49,11 +51,13 @@ final class Config {
     /** Whether the overlay file was present and parsed. */
     final boolean overlayApplied;
 
-    private Config(List<String> dockApps, List<String> hiddenApps, String liveTvPackage, String liveTvAction,
+    private Config(List<String> dockApps, List<String> appOrder, List<String> hiddenApps,
+                   String liveTvPackage, String liveTvAction,
                    String sourcePanelService, String sourcePanelAction, int columns, int rowsBelowDock,
                    boolean shamsiDate, String vpnApp, boolean showHomeSettingsShortcut, int backgroundColor,
                    File wallpaper, boolean overlayApplied) {
         this.dockApps = Collections.unmodifiableList(dockApps);
+        this.appOrder = Collections.unmodifiableList(appOrder);
         this.hiddenApps = Collections.unmodifiableList(hiddenApps);
         this.liveTvPackage = liveTvPackage;
         this.liveTvAction = liveTvAction;
@@ -77,6 +81,7 @@ final class Config {
     static Config load(Context ctx) {
         Resources res = ctx.getResources();
         List<String> dock = new ArrayList<>(Arrays.asList(res.getStringArray(R.array.dock_apps)));
+        List<String> order = new ArrayList<>(Arrays.asList(res.getStringArray(R.array.app_order)));
         List<String> hidden = new ArrayList<>(Arrays.asList(res.getStringArray(R.array.hidden_apps)));
         String liveTv = res.getString(R.string.live_tv_package).trim();
         String liveTvAction = res.getString(R.string.live_tv_action).trim();
@@ -96,6 +101,7 @@ final class Config {
         if (json != null) {
             applied = true;
             dock = stringList(json, "dock_apps", dock);
+            order = stringList(json, "app_order", order);
             hidden = stringList(json, "hidden_apps", hidden);
             liveTv = string(json, "live_tv_package", liveTv);
             liveTvAction = string(json, "live_tv_action", liveTvAction);
@@ -113,7 +119,7 @@ final class Config {
         // A theme can also switch the wallpaper off while the file is still there.
         if (json != null && json.has("wallpaper") && !bool(json, "wallpaper", true)) wallpaper = null;
 
-        return new Config(dock, hidden, liveTv, liveTvAction, panelService, panelAction,
+        return new Config(dock, order, hidden, liveTv, liveTvAction, panelService, panelAction,
                 Math.max(1, columns), Math.max(0, rowsBelow), shamsi, vpn, homeSettings, background,
                 wallpaper, applied);
     }

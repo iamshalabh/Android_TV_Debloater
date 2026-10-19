@@ -2,6 +2,7 @@
 <resources>
     <string name="app_name">Home</string>
     <string name="inputs">Inputs</string>
+    <string name="inputs_short">TV</string>
     <string name="wifi">Wi-Fi</string>
     <string name="settings">Settings</string>
     <string name="choose_input">Inputs</string>
@@ -18,7 +19,27 @@
     <string name="offline">Offline</string>
     <string name="not_available">Not available on this TV</string>
     <string name="cant_open">Can\'t open %1$s</string>
-    <string name="date_format">EEEE  d MMMM</string>
+    <string name="date_format">EEEE, d MMMM</string>
+    <string name="reorder">Reorder apps</string>
+    <string name="reorder_hint">Down to choose · OK picks up · Back finishes</string>
+    <string name="reorder_moving">Moving %1$s · OK drops · Back finishes</string>
+    <string name="reorder_none">No apps to reorder</string>
+    <string name="reorder_dock_fixed">Dock order stays fixed; pick an app below it</string>
+    <string name="reorder_reset">Grid order reset to the config default</string>
+    <string name="weather_clear">Clear</string>
+    <string name="weather_mainly_clear">Mainly clear</string>
+    <string name="weather_partly_cloudy">Partly cloudy</string>
+    <string name="weather_overcast">Overcast</string>
+    <string name="weather_fog">Fog</string>
+    <string name="weather_drizzle">Drizzle</string>
+    <string name="weather_freezing_drizzle">Freezing drizzle</string>
+    <string name="weather_rain">Rain</string>
+    <string name="weather_freezing_rain">Freezing rain</string>
+    <string name="weather_snow">Snow</string>
+    <string name="weather_snow_showers">Snow showers</string>
+    <string name="weather_rain_showers">Rain showers</string>
+    <string name="weather_thunderstorm">Thunderstorm</string>
+    <string name="weather_thunderstorm_hail">Thunderstorm with hail</string>
     <string name="dream_name">Clock</string>
     <string name="vpn">VPN</string>
     <string name="home_settings">Default home</string>

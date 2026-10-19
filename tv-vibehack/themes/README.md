@@ -24,6 +24,7 @@ is ignored, and a file that doesn't parse is ignored as a whole, so a theme can 
 | Key | Type | Meaning |
 |---|---|---|
 | `dock_apps` | list of package names | The dock row, in order; missing apps are skipped |
+| `app_order` | list of package names | Grid order after the dock; unlisted apps follow alphabetically |
 | `hidden_apps` | list of package names | Never shown as tiles |
 | `live_tv_package`, `live_tv_action` | string | The Live TV app and, if it has no leanback entry, the action to start it with |
 | `source_panel_service`, `source_panel_action` | string | The TV's own source panel, for sets with no TvInputManager |

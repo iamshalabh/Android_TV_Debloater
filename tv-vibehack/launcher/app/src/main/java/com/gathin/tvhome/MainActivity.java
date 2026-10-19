@@ -1,6 +1,7 @@
 package com.gathin.tvhome;
 
 import android.app.Activity;
+import android.animation.ValueAnimator;
 import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Context;
@@ -27,9 +28,11 @@ import android.text.SpannableString;
 import android.text.Spanned;
 import android.view.Gravity;
 import android.view.KeyEvent;
+import android.view.SoundEffectConstants;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.AnimationUtils;
+import android.view.animation.DecelerateInterpolator;
 import android.view.animation.LayoutAnimationController;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -61,7 +64,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     /** Tiles per row and dock slots (res/values/config.xml, columns). Set in onCreate. */
     static int COLUMNS = 4;
     private static final long MINUTE_MS = 60_000L;
-    private static final long WEATHER_MS = 30 * 60_000L;
+    /** Open-Meteo updates the "current" block every 15 minutes; 10 keeps the line fresh without hammering it. */
+    private static final long WEATHER_MS = 10 * 60_000L;
     private String liveTvPkg;
     private String liveTvAction;
     private String sourcePanelService;
@@ -71,6 +75,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private RecyclerView grid;
     private FrameLayout root;
     private GlassView glass;
+    private MascotView mascot;
+    private View mascotCard;
+    private boolean mascotShown;
+    /** The short hop currently moving the mascot; idle time has no animation at all. */
+    private ValueAnimator mascotHop;
     private View ambient;
     private TextView heroName;
     private GradientDrawable ambientGlow;
@@ -78,6 +87,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private boolean heroShown;
     private TextView greeting;
     private TextView weather;
+    private View weatherRow;
+    /** True while the reorder button has turned the grid into an edit surface. */
+    private boolean reorderMode;
+    /** True after OK lifts an app: the D-pad then moves that app instead of the focus. */
+    private boolean reorderPickedUp;
+    /** Only write a saved order when something actually moved. */
+    private boolean reorderDirty;
+    /** Slot of the app currently held in reorder mode, so a fast repeat key never uses a stale position. */
+    private int reorderPos = -1;
     private View btnInputs;
     private TextView btnWifi;
     private TextView shamsiDate;
@@ -166,6 +184,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         root.setBackgroundColor(cfg.backgroundColor);
         if (cfg.wallpaper != null) showWallpaper(cfg.wallpaper);
         glass = findViewById(R.id.glass);
+        mascot = findViewById(R.id.mascot);
         ambient = findViewById(R.id.ambient);
         heroName = findViewById(R.id.heroName);
         ambientGlow = new GradientDrawable();
@@ -176,7 +195,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 ambientGlow.setGradientRadius((r - l) * 0.62f));
         greeting = findViewById(R.id.greeting);
         weather = findViewById(R.id.weather);
-        if (Weather.cached() != null) showWeather(Weather.cached());
+        weatherRow = findViewById(R.id.weatherRow);
+        if (Weather.cached() != null) showWeather(Weather.cached(), Weather.cachedCode());
         btnWifi = findViewById(R.id.btnWifi);
         shamsiDate = findViewById(R.id.shamsiDate);
         shamsi = cfg.shamsiDate;
@@ -218,10 +238,19 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         grid.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
             public void onScrolled(@NonNull RecyclerView rv, int dx, int dy) {
-                if (!glassShown) return;
-                glassTargetY -= dy;
-                glassScrollShift -= dy;
-                glass.setTranslationY(glass.getTranslationY() - dy);
+                if (glassShown) {
+                    glassTargetY -= dy;
+                    glassScrollShift -= dy;
+                    glass.setTranslationY(glass.getTranslationY() - dy);
+                }
+                if (mascotShown && mascotCard != null) positionMascot(mascotCard, false);
+            }
+        });
+
+        // The first focus can land before the grid's padding and layout settle; keep the mascot honest.
+        grid.getViewTreeObserver().addOnGlobalLayoutListener(() -> {
+            if (mascotShown && mascotCard != null && (mascotHop == null || !mascotHop.isRunning())) {
+                positionMascot(mascotCard, false);
             }
         });
 
@@ -244,6 +273,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
         btnInputs = findViewById(R.id.btnInputs);
         View btnSettings = findViewById(R.id.btnSettings);
+        View btnReorder = findViewById(R.id.btnReorder);
         btnInputs.setOnClickListener(v -> showInputs());
         btnWifi.setOnClickListener(v -> openNetworkPill());
         btnWifi.setOnLongClickListener(v -> {
@@ -251,6 +281,19 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             return true;
         });
         btnSettings.setOnClickListener(v -> open(new Intent(Settings.ACTION_SETTINGS)));
+        btnReorder.setOnClickListener(v -> toggleReorder());
+        btnReorder.setOnLongClickListener(v -> {
+            if (reorderMode) {
+                reorderMode = false;
+                reorderPickedUp = false;
+                reorderPos = -1;
+                updateGreeting();
+            }
+            adapter.clearSavedOrder();
+            Toast.makeText(this, R.string.reorder_reset, Toast.LENGTH_SHORT).show();
+            grid.post(() -> focusTile(COLUMNS));
+            return true;
+        });
 
         // Keep focus on the top bar at its ends and at the top: Android's focus finder would otherwise
         // jump to a tile far below when there is nothing in that direction.
@@ -258,20 +301,25 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
             if (keyCode == KeyEvent.KEYCODE_DPAD_UP) return true;
             if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) {
-                // The left end is Inputs, or Wi-Fi on a box without inputs.
-                return v.getId() == R.id.btnInputs
-                        || (v.getId() == R.id.btnWifi && btnInputs.getVisibility() != View.VISIBLE);
+                // Wi-Fi is the left end of the pill row.
+                return v.getId() == R.id.btnWifi;
             }
-            return keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && v.getId() == R.id.btnSettings;
+            return keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && v.getId() == R.id.btnReorder;
         };
         btnInputs.setOnKeyListener(pillKeys);
         btnWifi.setOnKeyListener(pillKeys);
         btnSettings.setOnKeyListener(pillKeys);
+        btnReorder.setOnKeyListener(pillKeys);
 
         // Hide the glass when focus leaves the tiles.
         getWindow().getDecorView().getViewTreeObserver().addOnGlobalFocusChangeListener((oldF, newF) -> {
             boolean onTile = newF != null && newF.getId() == R.id.card;
-            if (!onTile) hideGlass();
+            if (!onTile) {
+                hideGlass();
+                hideHero();
+                hideMascot();
+                mascotCard = null;
+            }
         });
 
         ConnectivityManager cm = getSystemService(ConnectivityManager.class);
@@ -317,6 +365,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         super.onResume();
         glassShown = false;
         glass.setAlpha(0f);
+        mascotShown = false;
+        mascot.setAlpha(0f);
+        if (mascotHop != null) mascotHop.cancel();
         heroShown = false;
         heroName.setAlpha(0f);
         ambient.setAlpha(0f);
@@ -338,25 +389,31 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             int pos = adapter.positionOf(returnKey);
             focusTile(pos >= 0 ? pos : returnSlot);
         });
+        // Layout animation runs after the focus call; nudge the mascot once it has finished.
+        grid.postDelayed(() -> {
+            if (mascotShown && mascotCard != null) positionMascot(mascotCard, false);
+        }, 400);
     }
 
     @Override
     protected void onPause() {
+        // Leaving Home (or the screensaver starting) finishes an in-progress arrangement.
+        if (reorderMode) exitReorder();
         super.onPause();
         handler.removeCallbacks(minuteTick);
         handler.removeCallbacks(weatherTick);
     }
 
     private void refreshWeather() {
-        Weather.refresh(this, text -> {
-            if (text != null) showWeather(text);
+        Weather.refresh(this, (text, code) -> {
+            if (text != null) showWeather(text, code);
         });
     }
 
-    private void showWeather(String text) {
-        if (weather == null) return;
+    private void showWeather(String text, int code) {
+        if (weather == null || weatherRow == null) return;
         weather.setText(text);
-        weather.setVisibility(View.VISIBLE);
+        weatherRow.setVisibility(View.VISIBLE);
     }
 
     @Override
@@ -373,7 +430,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     @Override
     public void onBackPressed() {
-        // Home screen: Back goes nowhere.
+        // Back finishes an arrangement (the long-press on the reorder pill restores the config order);
+        // on Home itself it goes nowhere.
+        if (reorderMode) exitReorder();
     }
 
     // ---- glass highlight -------------------------------------------------------------------------
@@ -424,6 +483,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             Rect want = new Rect(0, -(int) pad * 2, item.getWidth(), item.getHeight() + (int) pad);
             grid.requestChildRectangleOnScreen(item, want, false);
         }
+        mascotCard = card;
+        showMascot(card, true);
     }
 
     // ---- top shelf -------------------------------------------------------------------------------
@@ -479,10 +540,125 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         glass.animate().alpha(0f).setDuration(160).start();
     }
 
+    // ---- pixel companion -------------------------------------------------------------------------
+
+    /** Shows the mascot beside the focused tile; the first appearance fades in instead of hopping. */
+    private void showMascot(View card, boolean animate) {
+        if (mascot == null) return;
+        mascotCard = card;
+        if (!mascotShown) {
+            mascotShown = true;
+            if (mascotHop != null) mascotHop.cancel();
+            positionMascot(card, false);
+            mascot.setScaleX(0.7f);
+            mascot.setScaleY(0.7f);
+            mascot.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(180).start();
+        } else {
+            positionMascot(card, animate);
+        }
+    }
+
+    /**
+     * Hovers the character above the tile's top-right corner, then (optionally) hops there along a
+     * short arc. No bitmap and no idle animation: a focus move costs one 300 ms run.
+     */
+    private void positionMascot(View card, boolean hop) {
+        if (mascot == null || card == null || card.getWidth() == 0) return;
+        Rect r = new Rect(0, 0, card.getWidth(), card.getHeight());
+        root.offsetDescendantRectToMyCoords(card, r);
+        float size = mascot.getWidth() > 0 ? mascot.getWidth() : 26 * density;
+        // Hover just above the tile's top-right corner: never over its artwork or the next tile.
+        float visualRight = r.right + card.getWidth() * (AppAdapter.FOCUS_SCALE - 1f) / 2f;
+        float tx = Math.min(root.getWidth() - size - 6 * density, visualRight + 4 * density);
+        tx = Math.max(6 * density, tx);
+        float ty = r.top - size - 4 * density;
+        if (ty < 6 * density) ty = r.top + 4 * density;
+
+        if (!hop || !mascotShown) {
+            if (mascotHop != null) mascotHop.cancel();
+            mascot.setTranslationX(tx);
+            mascot.setTranslationY(ty);
+            mascot.setRotation(0f);
+            mascot.setScaleX(1f);
+            mascot.setScaleY(1f);
+            return;
+        }
+
+        float sx = mascot.getTranslationX(), sy = mascot.getTranslationY();
+        float dx = tx - sx, dy = ty - sy;
+        if (Math.abs(dx) < 0.5f && Math.abs(dy) < 0.5f) return;
+        if (mascotHop != null) mascotHop.cancel();
+
+        float dist = (float) Math.sqrt(dx * dx + dy * dy);
+        float lift = Math.min(30 * density, 8 * density + dist * 0.10f);
+        float dir = dx >= 0 ? 1f : -1f;
+        ValueAnimator anim = ValueAnimator.ofFloat(0f, 1f);
+        anim.setDuration(300);
+        anim.setInterpolator(new DecelerateInterpolator(1.4f));
+        anim.addUpdateListener(a -> {
+            float t = (float) a.getAnimatedValue();
+            float arc = (float) Math.sin(Math.PI * t);
+            mascot.setTranslationX(sx + dx * t);
+            mascot.setTranslationY(sy + dy * t - lift * arc);
+            mascot.setRotation(dir * 7f * arc);
+            mascot.setScaleX(1f + 0.10f * arc);
+            mascot.setScaleY(1f + 0.07f * arc);
+            if (t >= 1f) {
+                mascot.setRotation(0f);
+                mascot.setScaleX(1f);
+                mascot.setScaleY(1f);
+            }
+        });
+        mascotHop = anim;
+        anim.start();
+    }
+
+    private void hideMascot() {
+        if (mascot == null) return;
+        mascotShown = false;
+        if (mascotHop != null) mascotHop.cancel();
+        mascot.animate().alpha(0f).setDuration(140).start();
+    }
+
     // ---- navigation ------------------------------------------------------------------------------
 
     @Override
-    public boolean onTileVerticalKey(int position, int keyCode) {
+    public boolean isReordering() {
+        return reorderMode;
+    }
+
+    @Override
+    public boolean onTileKey(int position, int keyCode) {
+        if (reorderMode) {
+            if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) {
+                if (reorderPickedUp) {
+                    // Drop where it is; the order is written when reorder mode ends.
+                    reorderPickedUp = false;
+                    reorderPos = -1;
+                    greeting.setText(R.string.reorder_hint);
+                    grid.playSoundEffect(SoundEffectConstants.CLICK);
+                } else if (position < COLUMNS) {
+                    Toast.makeText(this, R.string.reorder_dock_fixed, Toast.LENGTH_SHORT).show();
+                } else {
+                    // Lift this app. Until it is dropped, the D-pad moves it instead of the focus.
+                    reorderPickedUp = true;
+                    reorderPos = position;
+                    greeting.setText(getString(R.string.reorder_moving, adapter.labelAt(position)));
+                    grid.playSoundEffect(SoundEffectConstants.CLICK);
+                }
+                return true;
+            }
+            if (reorderPickedUp) return moveTile(keyCode);
+            // Not picked up yet: fall through to normal focus navigation so any app can be chosen.
+        }
+        // Only directions move the focus here. OK/ENTER must fall through to the click listener so
+        // it launches (or, in reorder mode, picks up/drops) the app instead of being read as Down.
+        if (keyCode != KeyEvent.KEYCODE_DPAD_LEFT
+                && keyCode != KeyEvent.KEYCODE_DPAD_RIGHT
+                && keyCode != KeyEvent.KEYCODE_DPAD_UP
+                && keyCode != KeyEvent.KEYCODE_DPAD_DOWN) {
+            return false;
+        }
         int count = adapter.getItemCount();
         int target;
         // Horizontal: swallow the key at a row's ends so focus never wraps to the next row or
@@ -496,13 +672,77 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
             if (position < COLUMNS) return false;          // dock row: let focus move to the top bar
             target = position - COLUMNS;
+            grid.playSoundEffect(SoundEffectConstants.NAVIGATION_UP);
         } else {
             int lastRowStart = ((count - 1) / COLUMNS) * COLUMNS;
             if (position >= lastRowStart) return true;     // already on the last row: stay put
             target = Math.min(position + COLUMNS, count - 1);
+            grid.playSoundEffect(SoundEffectConstants.NAVIGATION_DOWN);
         }
         focusTile(target);
         return true;
+    }
+
+    /** Move the picked-up app one slot, never into or out of the fixed dock. */
+    private boolean moveTile(int keyCode) {
+        int count = adapter.getItemCount();
+        int from = reorderPos >= COLUMNS && reorderPos < count ? reorderPos : -1;
+        if (from < 0) return true;
+        int target = -1;
+        if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) {
+            if (from % COLUMNS != 0) target = from - 1;
+        } else if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
+            if (from % COLUMNS != COLUMNS - 1 && from + 1 < count) target = from + 1;
+        } else if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
+            if (from - COLUMNS >= COLUMNS) target = from - COLUMNS;
+        } else if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+            if (from + COLUMNS < count) target = from + COLUMNS;
+        } else {
+            return false;
+        }
+        if (target < COLUMNS || target >= count) return true;
+        adapter.move(from, target);
+        reorderPos = target;
+        reorderDirty = true;
+        int sound = keyCode == KeyEvent.KEYCODE_DPAD_UP ? SoundEffectConstants.NAVIGATION_UP
+                : keyCode == KeyEvent.KEYCODE_DPAD_DOWN ? SoundEffectConstants.NAVIGATION_DOWN
+                : keyCode == KeyEvent.KEYCODE_DPAD_LEFT ? SoundEffectConstants.NAVIGATION_LEFT
+                : SoundEffectConstants.NAVIGATION_RIGHT;
+        grid.playSoundEffect(sound);
+        final int t = target;
+        // notifyItemMoved lays out on the next frame. Focusing immediately leaves the glass on the
+        // tile's old slot, because the moved view already has focus and no focus-change event fires.
+        grid.postDelayed(() -> focusTile(t), 32);
+        return true;
+    }
+
+    private void toggleReorder() {
+        if (reorderMode) {
+            exitReorder();
+            return;
+        }
+        if (adapter.getItemCount() <= COLUMNS) {
+            Toast.makeText(this, R.string.reorder_none, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        reorderMode = true;
+        reorderPickedUp = false;
+        reorderDirty = false;
+        reorderPos = -1;
+        greeting.setText(R.string.reorder_hint);
+        // Keep focus on the reorder pill. Nothing is preselected; Down moves into the grid and the
+        // user picks any app with OK, so entering never jumps to (or moves) a particular tile.
+    }
+
+    /** Back or the reorder pill finishes an arrangement; long-press the pill restores the config order. */
+    private void exitReorder() {
+        if (!reorderMode) return;
+        reorderMode = false;
+        reorderPickedUp = false;
+        reorderPos = -1;
+        if (reorderDirty) adapter.saveOrder();
+        reorderDirty = false;
+        updateGreeting();
     }
 
     private void focusTile(int position) {
@@ -533,6 +773,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     // ---- top bar ---------------------------------------------------------------------------------
 
     private void updateGreeting() {
+        if (reorderMode) return;   // the line is showing the reorder instructions
         int hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
         int res;
         if (hour < 5) res = R.string.good_night;

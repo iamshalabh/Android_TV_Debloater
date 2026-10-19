@@ -4,6 +4,7 @@ import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.Bitmap;
@@ -36,15 +37,18 @@ import java.util.Set;
 
 /**
  * App tiles. The first {@link MainActivity#COLUMNS} positions are the pinned dock (favourites, fixed order),
- * the rest is alphabetical.
+ * then the saved on-TV order, then {@code app_order}, then alphabetical.
  */
 public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
 
     interface TileListener {
         void onTileFocused(int position, View card);
 
-        /** Called for a D-pad direction key on a tile. Return true when handled (focus stays put). */
-        boolean onTileVerticalKey(int position, int keyCode);
+        /** Called for a D-pad direction or OK key on a tile. Return true when handled. */
+        boolean onTileKey(int position, int keyCode);
+
+        /** True while the grid is in reorder mode, so OK edits instead of launching the app. */
+        boolean isReordering();
     }
 
     static final class Entry {
@@ -96,6 +100,11 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
     private final List<String> favourites;
     /** Never shown as tiles (res/values/config.xml, hidden_apps). */
     private final Set<String> hidden;
+    /** Requested grid order (config.xml app_order); unlisted apps follow alphabetically. */
+    private final List<String> order;
+    /** Order saved from the on-TV reorder button; overrides app_order until reset. */
+    private final List<String> savedOrder = new ArrayList<>();
+    private final SharedPreferences prefs;
     private final boolean showHomeSettings;
     private final List<Entry> items = new ArrayList<>();
 
@@ -104,7 +113,13 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         this.listener = listener;
         this.dockSize = dockSize;
         this.favourites = cfg.dockApps;
+        this.order = cfg.appOrder;
         this.hidden = new HashSet<>(cfg.hiddenApps);
+        this.prefs = ctx.getSharedPreferences("tvhome", Context.MODE_PRIVATE);
+        String saved = prefs.getString("grid_order", "");
+        if (saved != null && !saved.isEmpty()) {
+            for (String pkg : saved.split(",")) if (!pkg.isEmpty()) savedOrder.add(pkg);
+        }
         this.showHomeSettings = cfg.showHomeSettingsShortcut;
         // Tiles keep their identity across reload(), so a focused tile stays on its app instead of
         // its view being rebound to whatever app now sits in that slot.
@@ -133,6 +148,18 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                 if (fb < 0) return -1;
                 return Integer.compare(fa, fb);
             }
+            int sa = savedOrder.indexOf(a.pkg), sb = savedOrder.indexOf(b.pkg);
+            if (sa >= 0 || sb >= 0) {
+                if (sa < 0) return 1;
+                if (sb < 0) return -1;
+                return Integer.compare(sa, sb);
+            }
+            int oa = order.indexOf(a.pkg), ob = order.indexOf(b.pkg);
+            if (oa >= 0 || ob >= 0) {
+                if (oa < 0) return 1;
+                if (ob < 0) return -1;
+                return Integer.compare(oa, ob);
+            }
             return a.label.compareToIgnoreCase(b.label);
         });
         // Optional "Default home" tile (config.xml), only when this TV actually has a home-screen picker.
@@ -145,6 +172,38 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         items.clear();
         items.addAll(fresh);
         notifyDataSetChanged();
+    }
+
+    /** Move a grid tile to another grid slot (never into or out of the dock). */
+    void move(int from, int to) {
+        if (from < dockSize || to < dockSize) return;
+        if (from < 0 || to < 0 || from >= items.size() || to >= items.size()) return;
+        items.add(to, items.remove(from));
+        notifyItemMoved(from, to);
+    }
+
+    /** Package names in the current grid order, without the dock and our own tiles. */
+    List<String> packageOrder() {
+        List<String> out = new ArrayList<>();
+        for (int i = dockSize; i < items.size(); i++) {
+            Entry e = items.get(i);
+            if (!e.pkg.equals(ctx.getPackageName())) out.add(e.pkg);
+        }
+        return out;
+    }
+
+    /** Persist the order the user arranged on the TV; it overrides app_order on the next start. */
+    void saveOrder() {
+        savedOrder.clear();
+        savedOrder.addAll(packageOrder());
+        prefs.edit().putString("grid_order", String.join(",", savedOrder)).apply();
+    }
+
+    /** Long-press the reorder button: go back to the order in config.xml. */
+    void clearSavedOrder() {
+        prefs.edit().remove("grid_order").apply();
+        savedOrder.clear();
+        reload();
     }
 
     @NonNull
@@ -190,8 +249,11 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
             h.label.setText(e.label);
             h.label.setVisibility(View.VISIBLE);
         }
-        h.card.setOnClickListener(v -> launch(e));
+        h.card.setOnClickListener(v -> {
+            if (listener == null || !listener.isReordering()) launch(e);
+        });
         h.card.setOnLongClickListener(v -> {
+            if (listener != null && listener.isReordering()) return true;
             Intent i = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + e.pkg));
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             try {
@@ -330,9 +392,10 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
             card.setOnKeyListener((view, keyCode, event) -> {
                 if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
                 if (keyCode != KeyEvent.KEYCODE_DPAD_UP && keyCode != KeyEvent.KEYCODE_DPAD_DOWN
-                        && keyCode != KeyEvent.KEYCODE_DPAD_LEFT && keyCode != KeyEvent.KEYCODE_DPAD_RIGHT) return false;
+                        && keyCode != KeyEvent.KEYCODE_DPAD_LEFT && keyCode != KeyEvent.KEYCODE_DPAD_RIGHT
+                        && keyCode != KeyEvent.KEYCODE_DPAD_CENTER && keyCode != KeyEvent.KEYCODE_ENTER) return false;
                 int pos = getBindingAdapterPosition();
-                return listener != null && pos != RecyclerView.NO_POSITION && listener.onTileVerticalKey(pos, keyCode);
+                return listener != null && pos != RecyclerView.NO_POSITION && listener.onTileKey(pos, keyCode);
             });
 
             card.setOnFocusChangeListener((view, focused) -> {

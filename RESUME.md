@@ -3,6 +3,12 @@
 Last updated: 19 October 2026, after the power cut. **The job is done** — see "DONE (resumed)" below.
 Day-to-day instructions now live in `tv-setup\README.md`; this file is the build/change log.
 
+> **Later additions (current state):** Stremio + Spotify in the grid, YouTube Music and TV Bro removed,
+> on-Home reorder mode, pixel mascot, weather condition text + AQI, the 68 sp clock with the greeting
+> above the date, and the Wi-Fi → TV → gear → reorder top bar. See `README.md`,
+> `docs/ARCHITECTURE.md` and `tv-setup/README.md` for the current state; the "LEFT OVER" note below
+> is historical.
+
 ## Device
 - TCL Google TV, `ro.product.device=G13`, MediaTek mt5867, Android 14 (SDK 34), ~950 MB RAM (`ro.config.low_ram=true`)
 - IP **192.168.1.8:5555** (Wi-Fi SSID `204_5G`; MAC address removed — it identifies the hardware)

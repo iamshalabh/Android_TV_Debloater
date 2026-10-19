@@ -2,29 +2,35 @@ package com.gathin.tvhome;
 
 import android.animation.ArgbEvaluator;
 import android.animation.ValueAnimator;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Handler;
 import android.os.Looper;
 import android.service.dreams.DreamService;
 import android.view.View;
+import android.widget.ImageView;
 import android.widget.TextView;
 
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.Calendar;
 import java.util.Random;
 
 /**
  * Screensaver: the launcher's analog clock, greeting and date on black, over two soft ambient glows.
  *
- * Deliberately cheap for a 1 GB TV: no bitmaps and no video. The clock content moves to the next of
- * nine spots once a minute (so nothing burns in), the two glows drift apart and their colours
- * breathe through a palette that follows the time of day. The only continuous work is the dial's
- * second hand, which redraws a 230 dp circle once a second while the screensaver is on.
+ * Deliberately cheap for a 1 GB TV: no video, and no bitmaps unless the optional photo layer is
+ * switched on. The clock content moves to the next of nine spots once a minute (so nothing burns
+ * in), the two glows drift apart and their colours breathe through a palette that follows the time
+ * of day. The only continuous work is the dial's second hand, which redraws a 360 dp circle once a
+ * second while the screensaver is on.
  */
 public class ClockDream extends DreamService {
 
     private static final long MOVE_MS = 60_000L;
-    private static final long WEATHER_MS = 30 * 60_000L;
-
+    private static final long WEATHER_MS = 10 * 60_000L;
     /** Deep, low-brightness glow colours, one set per time of day; drawn at partial alpha on black. */
     private static final int[] MORNING   = {0xFF1E88A8, 0xFF2BB673, 0xFF3F7CFF, 0xFF7A5CFF};
     private static final int[] AFTERNOON = {0xFF2B5CFF, 0xFF00A39A, 0xFF6A4CFF, 0xFF0E7C86};
@@ -37,12 +43,21 @@ public class ClockDream extends DreamService {
     private View ambient;
     private View ambient2;
     private TextView weather;
+    private View weatherRow;
+    private ImageView photo;
+    private View scrim;
+    private Bitmap currentPhoto;
+    private boolean photosEnabled;
+    private String photoUrl;
+    private long photoMs = 10 * 60_000L;
+    private int photoWidth;
+    private int photoHeight;
     private GradientDrawable glow;
     private GradientDrawable glow2;
     private int[] palette = NIGHT;
     private int colorIndex;
     private int glowColor;
-    private int slot;
+    private int slot = 4;   // start dead centre; the sway then visits the other eight spots
 
     private final Runnable tick = new Runnable() {
         @Override
@@ -61,6 +76,14 @@ public class ClockDream extends DreamService {
         }
     };
 
+    private final Runnable photoTick = new Runnable() {
+        @Override
+        public void run() {
+            loadPhoto();
+            handler.postDelayed(this, photoMs);
+        }
+    };
+
     @Override
     public void onAttachedToWindow() {
         super.onAttachedToWindow();
@@ -73,7 +96,24 @@ public class ClockDream extends DreamService {
         ambient = findViewById(R.id.dreamAmbient);
         ambient2 = findViewById(R.id.dreamAmbient2);
         weather = findViewById(R.id.dreamWeather);
-        if (Weather.cached() != null) showWeather(Weather.cached());
+        weatherRow = findViewById(R.id.dreamWeatherRow);
+        if (Weather.cached() != null) showWeather(Weather.cached(), Weather.cachedCode());
+
+        photo = findViewById(R.id.dreamPhoto);
+        scrim = findViewById(R.id.dreamScrim);
+        photosEnabled = "on".equalsIgnoreCase(getString(R.string.ambient_photos).trim());
+        if (photosEnabled) {
+            photoUrl = getString(R.string.ambient_photo_url);
+            photoWidth = Math.min(1920, getResources().getDisplayMetrics().widthPixels);
+            photoHeight = Math.min(1080, getResources().getDisplayMetrics().heightPixels);
+            try {
+                photoMs = Math.max(2, Math.min(120,
+                        Integer.parseInt(getString(R.string.ambient_photo_minutes).trim()))) * 60_000L;
+            } catch (NumberFormatException ignored) {
+                photoMs = 10 * 60_000L;
+            }
+            scrim.setVisibility(View.VISIBLE);
+        }
 
         glow = radial();
         glow2 = radial();
@@ -102,12 +142,17 @@ public class ClockDream extends DreamService {
         handler.postDelayed(tick, MOVE_MS);
         refreshWeather();
         handler.postDelayed(weatherTick, WEATHER_MS);
+        if (photosEnabled) {
+            loadPhoto();
+            handler.postDelayed(photoTick, photoMs);
+        }
     }
 
     @Override
     public void onDreamingStopped() {
         handler.removeCallbacks(tick);
         handler.removeCallbacks(weatherTick);
+        handler.removeCallbacks(photoTick);
         super.onDreamingStopped();
     }
 
@@ -115,19 +160,74 @@ public class ClockDream extends DreamService {
     public void onDetachedFromWindow() {
         handler.removeCallbacks(tick);
         handler.removeCallbacks(weatherTick);
+        handler.removeCallbacks(photoTick);
+        // The dream is over: give the bitmap back now rather than waiting for GC.
+        if (photo != null) photo.setImageDrawable(null);
+        if (currentPhoto != null) {
+            currentPhoto.recycle();
+            currentPhoto = null;
+        }
+        photo = null;
         super.onDetachedFromWindow();
     }
 
+    private void loadPhoto() {
+        if (!photosEnabled || photo == null) return;
+        final String url = photoUrl
+                .replace("{w}", String.valueOf(photoWidth))
+                .replace("{h}", String.valueOf(photoHeight))
+                .replace("{n}", String.valueOf(System.currentTimeMillis()));
+        new Thread(() -> {
+            final Bitmap bitmap = download(url);
+            handler.post(() -> showPhoto(bitmap));
+        }, "dream-photo").start();
+    }
+
+    private static Bitmap download(String url) {
+        HttpURLConnection connection = null;
+        try {
+            connection = (HttpURLConnection) new URL(url).openConnection();
+            connection.setConnectTimeout(10_000);
+            connection.setReadTimeout(15_000);
+            connection.setInstanceFollowRedirects(true);
+            connection.setRequestProperty("User-Agent", "tvhome");
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            // RGB_565 halves the footprint; this is a dimmed background, not a photo viewer.
+            options.inPreferredConfig = Bitmap.Config.RGB_565;
+            try (InputStream in = connection.getInputStream()) {
+                return BitmapFactory.decodeStream(in, null, options);
+            }
+        } catch (Exception e) {
+            return null;   // no network, bad redirect: the previous frame (or black) stays
+        } finally {
+            if (connection != null) connection.disconnect();
+        }
+    }
+
+    private void showPhoto(Bitmap bitmap) {
+        if (bitmap == null) return;
+        if (photo == null) {
+            bitmap.recycle();
+            return;
+        }
+        Bitmap old = currentPhoto;
+        currentPhoto = bitmap;
+        photo.setAlpha(0f);
+        photo.setImageBitmap(bitmap);
+        photo.animate().alpha(1f).setDuration(1400).start();
+        if (old != null && old != bitmap) old.recycle();
+    }
+
     private void refreshWeather() {
-        Weather.refresh(this, text -> {
-            if (text != null) showWeather(text);
+        Weather.refresh(this, (text, code) -> {
+            if (text != null) showWeather(text, code);
         });
     }
 
-    private void showWeather(String text) {
-        if (weather == null) return;
+    private void showWeather(String text, int code) {
+        if (weather == null || weatherRow == null) return;
         weather.setText(text);
-        weather.setVisibility(View.VISIBLE);
+        weatherRow.setVisibility(View.VISIBLE);
     }
 
     private static GradientDrawable radial() {
@@ -168,8 +268,8 @@ public class ClockDream extends DreamService {
     }
 
     /**
-     * Steps through a 3x3 grid with a little jitter, so over nine minutes the clock visits every
-     * part of the screen instead of clustering in the middle like pure random does.
+     * Keeps the composition centred (the dial is the widest thing on screen) and sways it by a few
+     * pixels on the same 3x3 cycle — enough to rest the panel without breaking the symmetry.
      */
     private void placeClock() {
         View parent = (View) content.getParent();
@@ -180,23 +280,21 @@ public class ClockDream extends DreamService {
         int row = (slot / 3) % 3;
         slot = (slot + 1) % 9;
 
-        float fx = clamp(0.06f + col * 0.44f + (random.nextFloat() - 0.5f) * 0.08f);
-        float fy = clamp(0.06f + row * 0.44f + (random.nextFloat() - 0.5f) * 0.08f);
-        float x = maxX * fx;
-        float y = maxY * fy;
+        float x = maxX / 2f + (col - 1) * Math.min(dp(8), maxX * 0.05f);
+        float y = maxY / 2f + (row - 1) * Math.min(dp(6), maxY * 0.05f);
 
         content.setX(x);
         content.setY(y);
         if (parent.getWidth() > 0 && parent.getHeight() > 0) {
             glow.setGradientCenter((x + content.getWidth() / 2f) / parent.getWidth(),
                     (y + content.getHeight() / 2f) / parent.getHeight());
-            // The second glow sits in the opposite corner, so the screen never looks lopsided.
-            glow2.setGradientCenter(1f - fx, 1f - fy);
+            // A second pool of colour low on the right keeps the frame from looking flat.
+            glow2.setGradientCenter(0.80f + (col - 1) * 0.02f, 0.74f + (row - 1) * 0.02f);
         }
     }
 
-    private static float clamp(float v) {
-        return v < 0f ? 0f : (v > 1f ? 1f : v);
+    private float dp(float value) {
+        return value * getResources().getDisplayMetrics().density;
     }
 
     private void shiftGlow() {

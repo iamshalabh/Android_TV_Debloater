@@ -25,4 +25,11 @@
         <item name="android:clickable">true</item>
     </style>
     <style name="TopButton" parent="TopButtonBase" />
+
+    <!-- Same pill, icon only (Settings, reorder). -->
+    <style name="TopIconButton" parent="TopButtonBase">
+        <item name="android:paddingStart">13dp</item>
+        <item name="android:paddingEnd">13dp</item>
+        <item name="android:drawablePadding">0dp</item>
+    </style>
 </resources>

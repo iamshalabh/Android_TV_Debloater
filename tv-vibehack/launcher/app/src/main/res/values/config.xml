@@ -16,15 +16,29 @@
         <item>com.amazon.amazonvideo.livingroom</item>
     </string-array>
 
+    <!-- Grid order after the dock. Apps listed here appear first, in this order; anything not
+         listed follows alphabetically. The dock apps stay in the dock (dock_apps above).
+         A pushed theme's config.json can override this with an "app_order" array, no rebuild. -->
+    <string-array name="app_order">
+        <item>tv.airtel.xstream.tvapp</item>          <!-- Airtel Xstream Play -->
+        <item>com.tcl.waterfall.overseas</item>       <!-- TCL Channel -->
+        <item>com.netflix.ninja</item>                <!-- Netflix -->
+        <item>com.graymatrix.did</item>               <!-- ZEE5 -->
+        <item>com.stremio.one</item>                  <!-- Stremio (official Android TV APK) -->
+        <item>com.spotify.tv.android</item>           <!-- Spotify (Play Store) -->
+    </string-array>
+
     <!-- Apps never shown as tiles: the MediaTek tuner (it still appears in the Inputs
          dropdown), the TV's quick panel, and Settings (which has its own pill). -->
     <string-array name="hidden_apps">
         <item>com.mediatek.wwtv.tvcenter</item>
         <item>com.tcl.suspension</item>
         <item>com.android.tv.settings</item>
+        <item>com.google.android.youtube.tvmusic</item> <!-- uninstalled for user 0; stays hidden if restored -->
+        <item>com.phlox.tvwebbrowser</item> <!-- removed in favour of Stremio; keeps it hidden if reinstalled -->
     </string-array>
 
-    <!-- Your name, appended to the greeting: "GOOD AFTERNOON, VEDARTH".
+    <!-- Your name, appended to the greeting: "Good afternoon, Vedarth".
          Leave empty for a plain greeting. -->
     <string name="user_name" translatable="false">Vedarth</string>
 
@@ -35,6 +49,18 @@
     <string name="weather_lat" translatable="false">26.9124</string>
     <string name="weather_lon" translatable="false">75.7873</string>
     <string name="weather_units" translatable="false">celsius</string>
+    <!-- Append the US AQI to the weather line. One extra tiny Open-Meteo request per refresh; it is
+         a short text result only (no image, no cache file), so the RAM cost is negligible. -->
+    <bool name="weather_aqi">true</bool>
+
+    <!-- Optional photo slideshow behind the screensaver clock, downloaded from the internet.
+         OFF by default: when on, the dream holds one bitmap in RAM while it runs (~1.8 MB at 720p,
+         ~4 MB at 1080p) plus a second one briefly during a refresh. APK impact is ~6 KB.
+         {w}/{h} are replaced with the screen size and {n} with a cache-buster.
+         Set to "on" to enable. -->
+    <string name="ambient_photos" translatable="false">off</string>
+    <string name="ambient_photo_url" translatable="false">https://picsum.photos/{w}/{h}?random={n}</string>
+    <string name="ambient_photo_minutes" translatable="false">10</string>
 
     <!-- The TV's Live TV / tuner app, offered at the end of the Inputs menu. Leave empty to omit. -->
     <string name="live_tv_package" translatable="false">com.mediatek.wwtv.tvcenter</string>
