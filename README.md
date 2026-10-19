@@ -16,15 +16,27 @@ Done and verified on the TV, screenshot by screenshot:
 
 | | |
 |---|---|
-| Debloat | 24 packages disabled for user 0 + the stock launcher |
-| Launcher | `com.gathin.tvhome` installed and **owns Home** |
+| Debloat | 23 packages + the stock launcher disabled for user 0 (24 off in total) |
+| Launcher | `com.gathin.tvhome` installed and **owns Home** — 248 KB, plain Java, no libraries |
 | Navigation | one-row Up/Down, Up → top pills, pill-row ends hold, last tile remembered |
 | Inputs | HDMI 1, HDMI 2, Composite (AV), Live TV |
-| Live TV | also a normal tile in the grid |
+| TCL Channel | a normal tile; the MediaTek tuner only in the Inputs menu |
+| Browser | TV Bro 2.1.6 in the grid (BrowseHere removed for user 0) |
 | Wi-Fi pill | shows `204_5G` |
-| Greeting | `GOOD AFTERNOON, VEDARTH`, by time of day |
-| Screensaver | the launcher's Clock: greeting, time-of-day colour, 3×3 drift (verified on the TV) |
+| Greeting | `GOOD EVENING, VEDARTH`, by time of day |
+| Weather | Jaipur, °C — Open-Meteo, no key, refreshed every 30 minutes |
+| Screensaver | analog clock with a ticking second hand, greeting, date and weather, 3×3 drift |
 | Sideloading | `tv-setup/install-apk.ps1` — local APK or GitHub URL |
+
+## The screens
+
+| Home | Apps |
+|---|---|
+| ![Home](docs/home.png) | ![Apps](docs/apps.png) |
+
+| Screensaver | Font shortlist |
+|---|---|
+| ![Screensaver](docs/screensaver.png) | ![Fonts](docs/fonts.png) |
 
 ## Layout
 

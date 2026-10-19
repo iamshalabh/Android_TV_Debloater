@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Dropdown row: an unfocused row is a faint glass chip; the focused row goes solid white. -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:state_focused="true">
         <shape android:shape="rectangle">
@@ -7,9 +8,22 @@
         </shape>
     </item>
     <item>
-        <shape android:shape="rectangle">
-            <solid android:color="#00000000" />
-            <corners android:radius="13dp" />
-        </shape>
+        <layer-list>
+            <item>
+                <shape android:shape="rectangle">
+                    <gradient
+                        android:angle="270"
+                        android:startColor="#14FFFFFF"
+                        android:endColor="#08FFFFFF" />
+                    <corners android:radius="13dp" />
+                </shape>
+            </item>
+            <item>
+                <shape android:shape="rectangle">
+                    <stroke android:width="1dp" android:color="#1AFFFFFF" />
+                    <corners android:radius="13dp" />
+                </shape>
+            </item>
+        </layer-list>
     </item>
 </selector>

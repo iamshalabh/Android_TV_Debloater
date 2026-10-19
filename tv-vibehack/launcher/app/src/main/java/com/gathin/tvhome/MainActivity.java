@@ -61,6 +61,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     /** Tiles per row and dock slots (res/values/config.xml, columns). Set in onCreate. */
     static int COLUMNS = 4;
     private static final long MINUTE_MS = 60_000L;
+    private static final long WEATHER_MS = 30 * 60_000L;
     private String liveTvPkg;
     private String liveTvAction;
     private String sourcePanelService;
@@ -76,6 +77,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private int ambientColor;
     private boolean heroShown;
     private TextView greeting;
+    private TextView weather;
     private View btnInputs;
     private TextView btnWifi;
     private TextView shamsiDate;
@@ -139,6 +141,13 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             handler.postDelayed(this, MINUTE_MS);
         }
     };
+    private final Runnable weatherTick = new Runnable() {
+        @Override
+        public void run() {
+            refreshWeather();
+            handler.postDelayed(this, WEATHER_MS);
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -166,6 +175,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         ambient.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) ->
                 ambientGlow.setGradientRadius((r - l) * 0.62f));
         greeting = findViewById(R.id.greeting);
+        weather = findViewById(R.id.weather);
+        if (Weather.cached() != null) showWeather(Weather.cached());
         btnWifi = findViewById(R.id.btnWifi);
         shamsiDate = findViewById(R.id.shamsiDate);
         shamsi = cfg.shamsiDate;
@@ -317,7 +328,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         updateGreeting();
         updateWifiLabel();
         updateInputsButton();
+        refreshWeather();
         handler.postDelayed(minuteTick, MINUTE_MS);
+        handler.postDelayed(weatherTick, WEATHER_MS);
 
         // Return to the app we left from, or the same slot if that app is gone. Always refocus: after
         // reload() the view that holds focus may no longer show the app it had.
@@ -331,6 +344,19 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     protected void onPause() {
         super.onPause();
         handler.removeCallbacks(minuteTick);
+        handler.removeCallbacks(weatherTick);
+    }
+
+    private void refreshWeather() {
+        Weather.refresh(this, text -> {
+            if (text != null) showWeather(text);
+        });
+    }
+
+    private void showWeather(String text) {
+        if (weather == null) return;
+        weather.setText(text);
+        weather.setVisibility(View.VISIBLE);
     }
 
     @Override

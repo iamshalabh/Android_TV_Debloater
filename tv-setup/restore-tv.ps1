@@ -45,6 +45,14 @@ Write-Host 'Restoring the animation scales and screensaver ...'
     'settings put secure screensaver_enabled 1'
 ) | & $py -I $tv --batch
 
+# Changes made after the first pass: BrowseHere was removed for user 0 and TCL Channel
+# was put in the restricted standby bucket. Put both back the way the TV shipped.
+Write-Host 'Bringing back the TCL browser and TCL Channel''s normal background state ...'
+@(
+    'cmd package install-existing --user 0 com.tcl.browser',
+    'am set-standby-bucket com.tcl.waterfall.overseas 10'
+) | & $py -I $tv --batch
+
 if ($UninstallLauncher) {
     Write-Host 'Uninstalling the custom launcher ...'
     & $py -I $tv 'pm uninstall com.gathin.tvhome'

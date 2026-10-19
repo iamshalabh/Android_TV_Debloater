@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Screensaver (ClockDream): greeting, clock and date drifting around a black screen over two
-     soft ambient glows. No images: everything here is drawn, so a 1 GB TV stays happy. -->
+<!-- Screensaver (ClockDream): greeting, analog clock and date drifting around a black screen over
+     two soft ambient glows. No images: everything here is drawn, so a 1 GB TV stays happy. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -30,43 +30,18 @@
             android:layout_marginBottom="10dp"
             android:textColor="#59FFFFFF"
             android:textSize="15sp"
-            android:fontFamily="@font/outfit"
+            android:fontFamily="@font/schibsted"
             android:fontVariationSettings="'wght' 400"
             android:letterSpacing="0.22"
             android:textAllCaps="true"
             android:includeFontPadding="false" />
 
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:baselineAligned="true">
-
-            <TextClock
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:format12Hour="h:mm"
-                android:format24Hour="HH:mm"
-                android:textColor="#E6FFFFFF"
-                android:textSize="120sp"
-                android:fontFamily="@font/outfit"
-                android:fontVariationSettings="'wght' 200"
-                android:letterSpacing="-0.04"
-                android:includeFontPadding="false" />
-
-            <TextClock
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="10dp"
-                android:format12Hour="a"
-                android:format24Hour=""
-                android:textColor="#99FFFFFF"
-                android:textSize="22sp"
-                android:fontFamily="@font/outfit"
-                android:fontVariationSettings="'wght' 500"
-                android:letterSpacing="0.08"
-                android:textAllCaps="true" />
-        </LinearLayout>
+        <com.gathin.tvhome.AnalogClockView
+            android:layout_width="230dp"
+            android:layout_height="230dp"
+            android:layout_marginStart="6dp"
+            android:layout_marginTop="6dp"
+            android:layout_marginBottom="6dp" />
 
         <TextClock
             android:layout_width="wrap_content"
@@ -77,9 +52,23 @@
             android:format24Hour="@string/date_format"
             android:textColor="#8CFFFFFF"
             android:textSize="18sp"
-            android:fontFamily="@font/outfit"
+            android:fontFamily="@font/schibsted"
             android:fontVariationSettings="'wght' 400"
             android:letterSpacing="0.14"
             android:textAllCaps="true" />
+
+        <TextView
+            android:id="@+id/dreamWeather"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:layout_marginTop="6dp"
+            android:textColor="#8CFFFFFF"
+            android:textSize="15sp"
+            android:fontFamily="@font/schibsted"
+            android:fontVariationSettings="'wght' 400"
+            android:letterSpacing="0.14"
+            android:textAllCaps="true"
+            android:visibility="gone" />
     </LinearLayout>
 </FrameLayout>

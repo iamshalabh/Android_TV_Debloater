@@ -13,16 +13,17 @@ import java.util.Calendar;
 import java.util.Random;
 
 /**
- * Screensaver: the launcher's thin clock, greeting and date on black, over two soft ambient glows.
+ * Screensaver: the launcher's analog clock, greeting and date on black, over two soft ambient glows.
  *
- * Deliberately cheap for a 1 GB TV: no bitmaps, no video, no network. The clock moves to the next
- * of nine spots once a minute (so nothing burns in), the two glows drift apart and their colours
- * breathe through a palette that follows the time of day. Nothing animates continuously — each
- * change is a short fade tied to the minute tick, so the CPU idles in between.
+ * Deliberately cheap for a 1 GB TV: no bitmaps and no video. The clock content moves to the next of
+ * nine spots once a minute (so nothing burns in), the two glows drift apart and their colours
+ * breathe through a palette that follows the time of day. The only continuous work is the dial's
+ * second hand, which redraws a 230 dp circle once a second while the screensaver is on.
  */
 public class ClockDream extends DreamService {
 
     private static final long MOVE_MS = 60_000L;
+    private static final long WEATHER_MS = 30 * 60_000L;
 
     /** Deep, low-brightness glow colours, one set per time of day; drawn at partial alpha on black. */
     private static final int[] MORNING   = {0xFF1E88A8, 0xFF2BB673, 0xFF3F7CFF, 0xFF7A5CFF};
@@ -35,6 +36,7 @@ public class ClockDream extends DreamService {
     private View content;
     private View ambient;
     private View ambient2;
+    private TextView weather;
     private GradientDrawable glow;
     private GradientDrawable glow2;
     private int[] palette = NIGHT;
@@ -51,6 +53,14 @@ public class ClockDream extends DreamService {
         }
     };
 
+    private final Runnable weatherTick = new Runnable() {
+        @Override
+        public void run() {
+            refreshWeather();
+            handler.postDelayed(this, WEATHER_MS);
+        }
+    };
+
     @Override
     public void onAttachedToWindow() {
         super.onAttachedToWindow();
@@ -62,6 +72,8 @@ public class ClockDream extends DreamService {
         content = findViewById(R.id.dreamContent);
         ambient = findViewById(R.id.dreamAmbient);
         ambient2 = findViewById(R.id.dreamAmbient2);
+        weather = findViewById(R.id.dreamWeather);
+        if (Weather.cached() != null) showWeather(Weather.cached());
 
         glow = radial();
         glow2 = radial();
@@ -88,18 +100,34 @@ public class ClockDream extends DreamService {
             content.animate().alpha(1f).setDuration(1200).start();
         });
         handler.postDelayed(tick, MOVE_MS);
+        refreshWeather();
+        handler.postDelayed(weatherTick, WEATHER_MS);
     }
 
     @Override
     public void onDreamingStopped() {
         handler.removeCallbacks(tick);
+        handler.removeCallbacks(weatherTick);
         super.onDreamingStopped();
     }
 
     @Override
     public void onDetachedFromWindow() {
         handler.removeCallbacks(tick);
+        handler.removeCallbacks(weatherTick);
         super.onDetachedFromWindow();
+    }
+
+    private void refreshWeather() {
+        Weather.refresh(this, text -> {
+            if (text != null) showWeather(text);
+        });
+    }
+
+    private void showWeather(String text) {
+        if (weather == null) return;
+        weather.setText(text);
+        weather.setVisibility(View.VISIBLE);
     }
 
     private static GradientDrawable radial() {

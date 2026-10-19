@@ -1,7 +1,8 @@
 # Your TCL Google TV — what changed, and how to change it back
 
-Everything below was applied over Wi-Fi ADB on **19 October 2026**. Nothing was uninstalled and
-nothing was flashed, so everything here is reversible.
+Everything below was applied over Wi-Fi ADB on **19 October 2026**. Nothing was removed from the
+system partition and nothing was flashed, so everything here is reversible. (The TCL browser was
+removed for your user account only — see [Put the TV completely back](#put-the-tv-completely-back).)
 
 ## The TV
 
@@ -12,39 +13,48 @@ nothing was flashed, so everything here is reversible.
 | RAM | ~1 GB (`ro.config.low_ram=true`) |
 | Address | `192.168.1.8:5555` (Wi-Fi, SSID `204_5G`) |
 | Stock launcher | `com.google.android.apps.tv.launcherx` — the ad-filled one |
-| New launcher | `com.gathin.tvhome` — built from `tv-vibehack`, ~250 KB, no ads, no network |
+| New launcher | `com.gathin.tvhome` — built from `tv-vibehack`, **248 KB**, no ads, no libraries, one weather request |
+| Browser | **TV Bro** 2.1.6 (`com.phlox.tvwebbrowser`) — open source, 6.8 MB; BrowseHere removed for your user |
 
 ## What was done
 
 1. **Backed up** the TV's package list and all settings to
    `tv-vibehack\backup\2026-10-19_124247\` before touching anything.
-2. **Disabled 24 + 1 packages** for user 0 (never uninstalled). The list is
-   `tv-vibehack\examples\tcl-g13-google-tv\debloat.txt`; the 25th,
-   `com.google.android.apps.tv.launcherx`, was disabled as part of the Home switch.
+2. **Disabled 24 packages** for user 0 (never uninstalled), plus the stock launcher as part of the
+   Home switch. The list is `tv-vibehack\examples\tcl-g13-google-tv\debloat.txt`. One of them,
+   **TCL Channel**, was later enabled again at your request, so **23 from the list + the stock
+   launcher** are off now — `pm list packages -d` shows 24 lines.
 3. **Built and installed the new launcher** and made it the default Home.
-4. **Extras not in the list:**
+4. **Extras and later changes:**
    - granted the launcher `ACCESS_FINE_LOCATION` so the Wi-Fi pill can show the network name
      (`204_5G`) — Android only hands out the SSID to an app that holds it;
    - replaced Google TV's ambient-mode screensaver (`com.google.android.apps.tv.dreamx`, which can
-     show promos) with the launcher's own **Clock** dream, then extended it (greeting, time-of-day
-     colour, 3×3 drift, second glow);
+     show promos) with the launcher's own **Clock** dream, then extended it;
    - put your name in the greeting: **GOOD AFTERNOON, VEDARTH**;
-   - unhid the **Live TV** app so it is a normal tile as well as an Inputs entry;
+   - swapped the MediaTek tuner tile for **TCL Channel** — the tuner still appears as **Live TV** in
+     the Inputs menu;
+   - installed **TV Bro** and removed TCL **BrowseHere** for your user;
+   - moved the launcher to **Schibsted Grotesk** (subset to Latin, 104 KB) — the best balance of
+     character and legibility from a shortlist that included Inter, Urbanist, Instrument Sans and a
+     serif (Newsreader), compared in `docs\fonts.png`;
+   - rebuilt the pills, Inputs dropdown and tiles with layered **glass** — gradients and rims, no blur;
+   - turned the screensaver's digits into a Canvas-drawn **analog clock** with a ticking second hand,
+     and added **Jaipur weather** to Home and the screensaver (Open-Meteo, no API key);
    - made **sideloading** usable: `tv-setup\install-apk.ps1` installs an APK from a file or a GitHub
-     URL, and TCL's browser is allowed to install unknown apps.
+     URL, and TV Bro is allowed to install unknown apps.
 
 ### What was kept
 
 Netflix, Prime Video, YouTube, Apple TV, Disney+ Hotstar, Zee5, Airtel Xstream, YouTube Music,
 the Play Store and Play Services, the on-screen keyboard, the USB media player
-(`com.mediatek.wwtv.mediaplayer`) and TCL's browser, HDMI and tuner input services, the Live TV app,
-Bluetooth and remote pairing, Chromecast, Miracast/AirPlay mirroring, and Google Assistant voice
-search.
+(`com.mediatek.wwtv.mediaplayer`), **TCL Channel**, **TV Bro**, HDMI and tuner input services, the
+Live TV tuner app, Bluetooth and remote pairing, Chromecast, Miracast/AirPlay mirroring, and Google
+Assistant voice search.
 
 ### What was disabled
 
 TCL telemetry and OTA/analytics (`com.tcl.ttvs`, `com.tcl.logkit`), TCL content and promos
-(`partnercustomizer`, `messagebox`, `waterfall.overseas`, `guard`, `keyhelp`, `com.tpa.kb`,
+(`partnercustomizer`, `messagebox`, `guard`, `keyhelp`, `com.tpa.kb`,
 `com.mstar.android.tv.disclaimercustomization`), the silent partner-app installer
 (`android.autoinstalls.config.google.gtvpai`), retail/factory demos and first-run wizards
 (`fusion.android.tv.demo`, `com.mediatek.MtkDemo`, `com.mediatek.wwtv.setupwizard`,
@@ -61,14 +71,19 @@ TV it also answers the Home intent and would otherwise keep Home off the new lau
 - **Home button** → this launcher. **Up / Down** move exactly one row; Up from the dock reaches the
   top pills; the ends of the pill row don't fall through. The last app you focused is remembered.
 - **Inputs** pill (top right) → HDMI 1, HDMI 2, Composite (AV), Live TV.
-- **Live TV** is also a normal tile in the grid now (you asked for that), and still appears at the
-  bottom of the Inputs menu.
+- **TCL Channel** is a tile in the grid. The MediaTek tuner no longer has a tile — that is the swap
+  you asked for — but it is still the **Live TV** entry in the Inputs menu, so the tuner works.
+- **Browser** → **TV Bro** in the grid. It is the only browser now; BrowseHere was removed.
 - **Wi-Fi** pill → shows `204_5G`; hold/select it for Wi-Fi settings.
 - **Settings** pill → Android TV's own settings.
-- The greeting reads **GOOD AFTERNOON, VEDARTH** (and morning/evening/night by the clock). The comma
+- The greeting reads **GOOD EVENING, VEDARTH** (and morning/afternoon/night by the clock). The comma
   is the normal English separator between a greeting and a name; change the name in `config.xml`
   (see [Your name](#your-name-in-the-greeting)).
+- **Weather** sits under the date on Home and on the screensaver: **JAIPUR 28°C**. It comes from
+  Open-Meteo, needs no account or key, and refreshes at most every 10 minutes when Home opens and
+  every 30 minutes while it stays open. Offline, the last reading simply stays.
 - The launcher is deliberately light: black background, no blur, no video, no background services.
+  The only extras are one HTTPS request for the weather and the screensaver's one redraw per second.
 
 You chose **not** to enable the optional accessibility service that maps the remote's physical
 Input button to the input switcher, so that button does nothing outside Live TV — use the Inputs
@@ -79,6 +94,16 @@ cd tv-vibehack
 $env:TV_HOST='192.168.1.8'
 powershell -ExecutionPolicy Bypass -File launcher\build-and-install.ps1 -TvHost 192.168.1.8 -InputKeyService
 ```
+
+## Do I need the Play Store?
+
+**Yes — leave it enabled.** It is what installs and updates Netflix, Prime Video, YouTube, Apple TV,
+Hotstar and the rest, and Play Services is what DRM playback, casting and the phone remote lean on.
+When idle it costs almost nothing; disabling it would freeze every app at its current version and
+prevent new Play apps from being installed.
+
+Sideloaded apps are separate: they never appear in the Play Store, and they update from wherever you
+got them (or by installing the newer APK with `install-apk.ps1`).
 
 ## Install apps from GitHub or other sources
 
@@ -97,14 +122,14 @@ powershell -ExecutionPolicy Bypass -File tv-setup\install-apk.ps1 https://github
 Installed apps appear in the launcher grid automatically (press Home if it hasn't refreshed). To
 remove one: `tv-vibehack\tools\venv\Scripts\python.exe -I tools\tv.py 'pm uninstall <package>'`.
 
-**2. On the TV itself.** I enabled "install unknown apps" for TCL's browser:
+**2. On the TV itself.** TV Bro is allowed to install unknown apps:
 
 ```powershell
-tools\venv\Scripts\python.exe -I tools\tv.py 'appops set com.tcl.browser REQUEST_INSTALL_PACKAGES allow'
+tools\venv\Scripts\python.exe -I tools\tv.py 'appops set com.phlox.tvwebbrowser REQUEST_INSTALL_PACKAGES allow'
 ```
 
-so a direct APK link opened in the TV's browser can be downloaded and installed. In practice the
-browser on this set is clunky for that; the PC route is the one to use.
+so a direct APK link opened in TV Bro can be downloaded and installed. In practice the PC route is
+still the reliable one.
 
 **Things that will bite**
 
@@ -175,6 +200,26 @@ See `tv-vibehack\themes\README.md` for every key and the two bundled themes (`au
 Replace `@android:color/black` with a colour literal such as `#0B0B10`, or with your own drawable in
 `launcher\app\src\main\res\drawable\`. Then run `rebuild-launcher.ps1`.
 
+## Fonts and glass
+
+The launcher ships **Schibsted Grotesk**, subset to Latin (**104 KB**). It won the shortlist in
+`docs\fonts.png` — Inter, Urbanist, Instrument Sans, Newsreader and Space Grotesk — because it has
+more character than Inter at clock size yet still holds up at the 12–15 px labels.
+
+Apple's SF Pro and Anthropic's custom Sans/Serif are proprietary and cannot be bundled, so those
+directions were judged through their closest free stand-ins (Newsreader for the Claude-style serif;
+Space Grotesk for Styrene's quirks). The serif reads editorial rather than TV, and Space Grotesk was
+too quirky for the pills.
+
+To change the font, drop a different variable font in at
+`launcher\app\src\main\res\font\schibsted.ttf` (keep the name), or rename it and update the
+`@font/schibsted` references, then run `rebuild-launcher.ps1`.
+
+The pills, the Inputs dropdown and the tile placeholders are layered drawables: a translucent
+gradient, a bright 1 dp rim and a faint inner sheen. That is the iOS "glass" look **without** a
+backdrop blur — real blur would cost GPU time on every frame on this 1 GB MediaTek chip. Here, glass
+is free.
+
 ## Your name in the greeting
 
 `config.xml` has:
@@ -185,6 +230,26 @@ Replace `@android:color/black` with a colour literal such as `#0B0B10`, or with 
 
 The greeting becomes "GOOD AFTERNOON, VEDARTH" (the whole line is upper-cased by the layout). Leave it
 empty to get the plain greeting back, or change the name, then run `rebuild-launcher.ps1`.
+
+## Weather, city and units
+
+`config.xml` also has:
+
+```xml
+<string name="weather_city" translatable="false">Jaipur</string>
+<string name="weather_lat" translatable="false">26.9124</string>
+<string name="weather_lon" translatable="false">75.7873</string>
+<string name="weather_units" translatable="false">celsius</string>
+```
+
+Change the label and the coordinates (Google Maps → right-click the spot → copy the two numbers), set
+`weather_units` to `fahrenheit` for °F, then rebuild. Leave `weather_city` empty to hide the line and
+skip the request entirely.
+
+**What it costs.** The APK grew by 2.7 KB. Memory does not measurably change: the JSON and TLS
+buffers exist only during a fetch, then are collected. The launcher gains the `INTERNET` permission
+— the only network it uses, and the only thing it ever sends is the request itself (no identifiers,
+no account). If the TV is offline, the last reading stays and nothing retries until the next tick.
 
 ## Re-enable a single app
 
@@ -201,6 +266,8 @@ what is currently off with `pm list packages -d`. The most likely ones you'd wan
 
 | Package | What it is |
 |---|---|
+| `com.tcl.waterfall.overseas` | **TCL Channel** — enabled again, in the grid |
+| `com.tcl.browser` | TCL BrowseHere — removed for user 0; return it with `pm install-existing --user 0 com.tcl.browser` |
 | `com.google.android.apps.tv.dreamx` | Google TV ambient-mode screensaver (can show promos) |
 | `com.google.android.videos` | Google TV "Movies & TV" store |
 | `com.tcl.ttvs` | TCL service **and the firmware/OTA updater** |
@@ -213,9 +280,13 @@ what is currently off with `pm list packages -d`. The most likely ones you'd wan
 powershell -ExecutionPolicy Bypass -File tv-setup\restore-tv.ps1
 ```
 
-That re-enables all 24 packages, re-enables and re-selects `com.google.android.apps.tv.launcherx` as
-Home, restores the animation scales and the original screensaver setting, and prints what is still
-disabled. Add `-UninstallLauncher` to also remove the custom launcher.
+That re-enables the packages in the list (including TCL Channel), re-enables and re-selects
+`com.google.android.apps.tv.launcherx` as Home, restores the animation scales and the original
+screensaver setting, brings TCL BrowseHere back for your user, un-restricts TCL Channel, and prints
+what is still disabled. Add `-UninstallLauncher` to also remove the custom launcher.
+
+TV Bro is not a system app, so the restore script leaves it installed. Remove it with
+`pm uninstall com.phlox.tvwebbrowser` if you don't want it.
 
 ## If something goes wrong
 
@@ -236,32 +307,23 @@ disabled. Add `-UninstallLauncher` to also remove the custom launcher.
 
 ## The Clock screensaver
 
-Applied and verified on the TV (`dream2.png`): it is `com.gathin.tvhome/.ClockDream`. Re-apply it any
-time with `tv-setup\set-clock-screensaver.ps1`.
+Applied and verified on the TV (`docs\screensaver.png`): it is `com.gathin.tvhome/.ClockDream`.
+Re-apply it any time with `tv-setup\set-clock-screensaver.ps1`. It uses the same Schibsted Grotesk
+font as Home, and everything is drawn with vectors.
 
-It draws everything with vectors, so **no bitmaps and no extra RAM**:
-
-- your greeting and name above a large thin clock and the date;
+- an **analog dial** — thin rim, 60 ticks, hour and minute hands, and a warm second hand — above the
+  date and the weather, under your greeting;
 - two soft radial glows that drift apart, with a palette that follows the time of day — teal/green in
   the morning, cool blue/teal in the afternoon, warm orange/pink in the evening, deep indigo at night;
-- the clock steps through a **3×3 grid** with a little jitter once a minute, so every part of the
-  screen gets used and nothing burns in (pure random clustering is why the old version could sit in
-  the middle for ages);
-- each change is a short fade on the minute tick. Nothing animates continuously, so the CPU idles
-  between ticks.
+- the whole block steps through a **3×3 grid** with a little jitter once a minute, so every part of
+  the screen gets used and nothing burns in (pure random clustering is why the old version could sit
+  in the middle for ages);
+- each move is a short fade on the minute tick, and the glows breathe on an 8-second cross-fade.
 
-**Ideas that would still be cheap, if you want more.** Roughly in order of cost:
-
-| Idea | Cost | Notes |
-|---|---|---|
-| More palettes / a "scene" per hour | free | Just more colour sets; zero memory |
-| Alternate clock typography (thin / wide / numerals) | free | Same font, different weight/size |
-| A dimmed photo behind the clock | ~3.6 MB at 720p, one bitmap | The most expensive option here, but still small; needs a dark 1280×720 JPEG and a black scrim |
-| Slow Ken-Burns drift on that one photo | no extra RAM | GPU only; cheap on a still image |
-| Weather or the next calendar event | a little CPU/network | Needs an API key and `INTERNET`; the launcher currently has no network permission on purpose |
-| Now-playing art from the TV | not worth it | Requires a media-session listener and constant redraws |
-
-Tell me which of those you want and I'll add it.
+**What it costs.** The dial is a Canvas view: a handful of `Paint` objects, no bitmaps, no extra font.
+While the screensaver is on it redraws its 230 dp circle once a second for the second hand —
+negligible on this chip, but it is the one thing here that is not literally idle. To get back to zero,
+remove the second hand from `AnalogClockView.onDraw` and the per-second tick with it.
 
 It starts after the TV has been idle for `screen_off_timeout` (currently 10 minutes = 600000 ms):
 
