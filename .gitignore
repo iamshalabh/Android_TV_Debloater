@@ -1,0 +1,8 @@
+# Verification captures and scratch output — big, machine-specific, not source.
+screenshots/
+
+# Windows / editor noise
+Thumbs.db
+desktop.ini
+.DS_Store
+*.log
