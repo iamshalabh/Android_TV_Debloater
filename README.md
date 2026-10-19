@@ -20,8 +20,11 @@ Done and verified on the TV, screenshot by screenshot:
 | Launcher | `com.gathin.tvhome` installed and **owns Home** |
 | Navigation | one-row Up/Down, Up → top pills, pill-row ends hold, last tile remembered |
 | Inputs | HDMI 1, HDMI 2, Composite (AV), Live TV |
+| Live TV | also a normal tile in the grid |
 | Wi-Fi pill | shows `204_5G` |
-| Screensaver | the launcher's drifting Clock (verified on the TV) |
+| Greeting | `GOOD AFTERNOON, VEDARTH`, by time of day |
+| Screensaver | the launcher's Clock: greeting, time-of-day colour, 3×3 drift (verified on the TV) |
+| Sideloading | `tv-setup/install-apk.ps1` — local APK or GitHub URL |
 
 ## Layout
 
