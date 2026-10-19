@@ -26,7 +26,12 @@ nothing was flashed, so everything here is reversible.
    - granted the launcher `ACCESS_FINE_LOCATION` so the Wi-Fi pill can show the network name
      (`204_5G`) — Android only hands out the SSID to an app that holds it;
    - replaced Google TV's ambient-mode screensaver (`com.google.android.apps.tv.dreamx`, which can
-     show promos) with the launcher's own drifting **Clock**.
+     show promos) with the launcher's own **Clock** dream, then extended it (greeting, time-of-day
+     colour, 3×3 drift, second glow);
+   - put your name in the greeting: **GOOD AFTERNOON, VEDARTH**;
+   - unhid the **Live TV** app so it is a normal tile as well as an Inputs entry;
+   - made **sideloading** usable: `tv-setup\install-apk.ps1` installs an APK from a file or a GitHub
+     URL, and TCL's browser is allowed to install unknown apps.
 
 ### What was kept
 
@@ -56,8 +61,13 @@ TV it also answers the Home intent and would otherwise keep Home off the new lau
 - **Home button** → this launcher. **Up / Down** move exactly one row; Up from the dock reaches the
   top pills; the ends of the pill row don't fall through. The last app you focused is remembered.
 - **Inputs** pill (top right) → HDMI 1, HDMI 2, Composite (AV), Live TV.
+- **Live TV** is also a normal tile in the grid now (you asked for that), and still appears at the
+  bottom of the Inputs menu.
 - **Wi-Fi** pill → shows `204_5G`; hold/select it for Wi-Fi settings.
 - **Settings** pill → Android TV's own settings.
+- The greeting reads **GOOD AFTERNOON, VEDARTH** (and morning/evening/night by the clock). The comma
+  is the normal English separator between a greeting and a name; change the name in `config.xml`
+  (see [Your name](#your-name-in-the-greeting)).
 - The launcher is deliberately light: black background, no blur, no video, no background services.
 
 You chose **not** to enable the optional accessibility service that maps the remote's physical
@@ -69,6 +79,43 @@ cd tv-vibehack
 $env:TV_HOST='192.168.1.8'
 powershell -ExecutionPolicy Bypass -File launcher\build-and-install.ps1 -TvHost 192.168.1.8 -InputKeyService
 ```
+
+## Install apps from GitHub or other sources
+
+There was no way to install anything that isn't in the Play Store: the TV has Android's APK installer
+(`com.google.android.packageinstaller`) but **no file manager and no download UI**, so "open the
+downloaded file on the TV" simply isn't available. Two paths now exist.
+
+**1. From this PC — works for any APK, including GitHub release assets.** Point the script at a file
+or a URL; it downloads if needed, pushes the APK to the TV and installs it:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tv-setup\install-apk.ps1 C:\Downloads\some-app.apk
+powershell -ExecutionPolicy Bypass -File tv-setup\install-apk.ps1 https://github.com/owner/repo/releases/download/v1.2/app-androidtv.apk
+```
+
+Installed apps appear in the launcher grid automatically (press Home if it hasn't refreshed). To
+remove one: `tv-vibehack\tools\venv\Scripts\python.exe -I tools\tv.py 'pm uninstall <package>'`.
+
+**2. On the TV itself.** I enabled "install unknown apps" for TCL's browser:
+
+```powershell
+tools\venv\Scripts\python.exe -I tools\tv.py 'appops set com.tcl.browser REQUEST_INSTALL_PACKAGES allow'
+```
+
+so a direct APK link opened in the TV's browser can be downloaded and installed. In practice the
+browser on this set is clunky for that; the PC route is the one to use.
+
+**Things that will bite**
+
+- Get the **Android TV / leanback** build of an app, not the phone build. A phone APK installs fine
+  but opens with no remote-navigable UI.
+- Apps published as `.apks` bundles or as a folder of splits (many GitHub releases) don't install with
+  `pm install`; look for a *universal* APK, or install the split set with
+  `pm install-multiple` (the script does not do this yet).
+- Play Protect may scan the first sideload. If it blocks, allow it once on screen, or relax it with
+  `settings put global verifier_verify_adb_installs 0` (less safe — prefer allowing).
+- ADB installs go to user 0, same as everything else here. Nothing is rooted.
 
 ## Change the four dock apps, or their order
 
@@ -99,9 +146,25 @@ cd tv-vibehack; tools\venv\Scripts\python.exe -I tools\tv.py 'pm list packages'
 
 ## Change the wallpaper / background
 
-The launcher has no wallpaper image: it draws a **pure black** window background, and the coloured
-halo behind the big app name is sampled automatically from whichever dock app is focused. To change
-the background, edit `tv-vibehack\launcher\app\src\main\res\values\styles.xml`:
+There are two ways, and the first needs no rebuild at all.
+
+**Theme overlay (no rebuild).** Upstream added a JSON overlay: a `config.json` with
+`"background_color": "#0B0B10"` and/or `"wallpaper": true` next to a `wallpaper.jpg`, pushed to the
+TV. The launcher applies it the next time Home starts. Keep the picture dark, 1920×1080 and under
+~300 KB — a 1 GB TV decodes it into memory on every Home start, which is why black is still the
+cheapest option here.
+
+```powershell
+cd tv-vibehack
+$env:TV_HOST='192.168.1.8'
+powershell -ExecutionPolicy Bypass -File tools\theme.ps1 -TvHost 192.168.1.8 themes\aurora
+powershell -ExecutionPolicy Bypass -File tools\theme.ps1 -TvHost 192.168.1.8 --reset   # back to black
+```
+
+See `tv-vibehack\themes\README.md` for every key and the two bundled themes (`aurora`, `six-columns`).
+
+**Baked in.** For a permanent change, edit
+`tv-vibehack\launcher\app\src\main\res\values\styles.xml`:
 
 ```xml
 <style name="Theme.TvHome" parent="android:Theme.Material.NoActionBar.Fullscreen">
@@ -111,6 +174,17 @@ the background, edit `tv-vibehack\launcher\app\src\main\res\values\styles.xml`:
 
 Replace `@android:color/black` with a colour literal such as `#0B0B10`, or with your own drawable in
 `launcher\app\src\main\res\drawable\`. Then run `rebuild-launcher.ps1`.
+
+## Your name in the greeting
+
+`config.xml` has:
+
+```xml
+<string name="user_name" translatable="false">Vedarth</string>
+```
+
+The greeting becomes "GOOD AFTERNOON, VEDARTH" (the whole line is upper-cased by the layout). Leave it
+empty to get the plain greeting back, or change the name, then run `rebuild-launcher.ps1`.
 
 ## Re-enable a single app
 
@@ -160,20 +234,44 @@ disabled. Add `-UninstallLauncher` to also remove the custom launcher.
 - **Last resort, without any tools:** the TV's own Settings → Apps page can re-enable anything you
   disabled. A factory reset is the final fallback, not the first.
 
-## One leftover step: the Clock screensaver
+## The Clock screensaver
 
-The TV went off the network before this could be applied, so it is still the plain fallback colour.
-Run this once, whenever the TV is on and reachable:
+Applied and verified on the TV (`dream2.png`): it is `com.gathin.tvhome/.ClockDream`. Re-apply it any
+time with `tv-setup\set-clock-screensaver.ps1`.
+
+It draws everything with vectors, so **no bitmaps and no extra RAM**:
+
+- your greeting and name above a large thin clock and the date;
+- two soft radial glows that drift apart, with a palette that follows the time of day — teal/green in
+  the morning, cool blue/teal in the afternoon, warm orange/pink in the evening, deep indigo at night;
+- the clock steps through a **3×3 grid** with a little jitter once a minute, so every part of the
+  screen gets used and nothing burns in (pure random clustering is why the old version could sit in
+  the middle for ages);
+- each change is a short fade on the minute tick. Nothing animates continuously, so the CPU idles
+  between ticks.
+
+**Ideas that would still be cheap, if you want more.** Roughly in order of cost:
+
+| Idea | Cost | Notes |
+|---|---|---|
+| More palettes / a "scene" per hour | free | Just more colour sets; zero memory |
+| Alternate clock typography (thin / wide / numerals) | free | Same font, different weight/size |
+| A dimmed photo behind the clock | ~3.6 MB at 720p, one bitmap | The most expensive option here, but still small; needs a dark 1280×720 JPEG and a black scrim |
+| Slow Ken-Burns drift on that one photo | no extra RAM | GPU only; cheap on a still image |
+| Weather or the next calendar event | a little CPU/network | Needs an API key and `INTERNET`; the launcher currently has no network permission on purpose |
+| Now-playing art from the TV | not worth it | Requires a media-session listener and constant redraws |
+
+Tell me which of those you want and I'll add it.
+
+It starts after the TV has been idle for `screen_off_timeout` (currently 10 minutes = 600000 ms):
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File tv-setup\set-clock-screensaver.ps1
+cd tv-vibehack
+$env:TV_HOST='192.168.1.8'
+tools\venv\Scripts\python.exe -I tools\tv.py 'settings put system screen_off_timeout 600000'
 ```
 
-It points the screensaver at `com.gathin.tvhome/.ClockDream` — a large thin clock and date over an
-ambient glow that drifts to a new spot each minute so nothing burns in. It starts after the TV has
-been idle for `screen_off_timeout` (to change that idle time, use
-`tools\venv\Scripts\python.exe -I tools\tv.py 'settings put system screen_off_timeout 600000'`, in
-milliseconds). The restore script undoes it either way.
+The restore script puts Google's ambient mode back either way.
 
 ## When you're finished
 

@@ -514,7 +514,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         else if (hour < 17) res = R.string.good_afternoon;
         else if (hour < 22) res = R.string.good_evening;
         else res = R.string.good_night;
-        greeting.setText(res);
+        // "GOOD AFTERNOON, VEDARTH" — the comma is the normal English form between a
+        // greeting and a name. With user_name empty it stays a plain greeting.
+        String name = getString(R.string.user_name).trim();
+        greeting.setText(name.isEmpty() ? getString(res) : getString(res) + ", " + name);
         if (shamsi) shamsiDate.setText(Shamsi.today());
     }
 

@@ -16,13 +16,17 @@
         <item>com.amazon.amazonvideo.livingroom</item>
     </string-array>
 
-    <!-- Apps never shown as tiles: Live TV and the TV's quick panel are covered by the Inputs pill,
-         and Settings has its own pill in the top bar. -->
+    <!-- Apps never shown as tiles: the TV's quick panel is covered by the Inputs pill,
+         and Settings has its own pill in the top bar. Live TV (com.mediatek.wwtv.tvcenter)
+         is deliberately NOT hidden here — it also appears as a normal tile. -->
     <string-array name="hidden_apps">
-        <item>com.mediatek.wwtv.tvcenter</item>
         <item>com.tcl.suspension</item>
         <item>com.android.tv.settings</item>
     </string-array>
+
+    <!-- Your name, appended to the greeting: "GOOD AFTERNOON, VEDARTH".
+         Leave empty for a plain greeting. -->
+    <string name="user_name" translatable="false">Vedarth</string>
 
     <!-- The TV's Live TV / tuner app, offered at the end of the Inputs menu. Leave empty to omit. -->
     <string name="live_tv_package" translatable="false">com.mediatek.wwtv.tvcenter</string>
