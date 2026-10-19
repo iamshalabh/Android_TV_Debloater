@@ -1,0 +1,62 @@
+# TCL Google TV, device G13 ("Smart TV", MediaTek mt5867), Android 14 / SDK 34, 1 GB RAM
+# Google TV build UKN2.241110.001, stock launcher com.google.android.apps.tv.launcherx
+#
+# Apply:  TV_HOST=<tv ip> powershell -ExecutionPolicy Bypass -File tools\disable.ps1 -TvHost <tv ip> examples\tcl-g13-google-tv\debloat.txt
+# Undo:   TV_HOST=<tv ip> powershell -ExecutionPolicy Bypass -File tools\restore.ps1 -TvHost <tv ip> examples\tcl-g13-google-tv\debloat.txt com.google.android.apps.tv.launcherx
+# Everything is DISABLED for user 0, never uninstalled. Comment out any line you want to keep.
+#
+# Live TV / HDMI app: com.mediatek.wwtv.tvcenter. Inputs: HDMI 1, HDMI 2, AV, VGA, tuner.
+#
+# Keep (do NOT add here): com.mediatek.tvinput, com.mediatek.tv.service, com.mediatek.wwtv.tvcenter,
+# com.mediatek.wwtv.mediaplayer, com.mediatek.android.tv.globalkeyoverlay, com.tcl.suspension (the quick
+# panel / input switcher), com.tcl.factory.view (fallback Home), com.tcl.useragreement, com.tcl.browser,
+# com.android.bluetooth, com.android.tv.settings, com.google.android.inputmethod.latin (keyboard),
+# com.android.vending (Play Store), com.google.android.gms (Play Services),
+# com.google.android.katniss (Assistant), com.google.android.apps.mediashell + com.google.android.tv.inputplayer
+# (Chromecast), com.google.android.tv.remote.service (phone remote), com.dolby.android.audio.service.
+#
+# Known quirks on this firmware (see the project's tv-setup/README.md):
+# - With launcherx disabled, com.google.android.tungsten.setupwraith claims HOME (RecoveryActivity), so the
+#   whole setup-wizard package is disabled below. It is only the first-run wizard; everyday use is unaffected,
+#   but re-enable it before a factory reset.
+# - Disabling dreamx (ambient mode) leaves a promo screensaver; set the AOSP fallback with
+#   tools\tv.py 'settings put secure screensaver_components com.android.dreams.basic/.Colors'
+# - screencap can come out empty while Live TV / an HDMI input is on screen. Press Home first.
+
+# --- TCL telemetry and analytics (com.tcl.ttvs also carries the TCL OTA updater) ---
+com.tcl.ttvs
+com.tcl.logkit
+
+# --- TCL content, ads and promos ---
+com.tcl.partnercustomizer
+com.tcl.messagebox
+com.tcl.waterfall.overseas
+com.tcl.guard
+com.tcl.keyhelp
+com.tpa.kb
+com.mstar.android.tv.disclaimercustomization
+
+# --- Silently installs partner apps ---
+android.autoinstalls.config.google.gtvpai
+
+# --- Retail demo, factory demos, first-run wizards ---
+fusion.android.tv.demo
+com.mediatek.MtkDemo
+com.mediatek.wwtv.setupwizard
+com.mediatek.wwtv.setup.customization
+
+# --- Google feedback, ads and the ambient promo screensaver ---
+com.google.android.feedback
+com.android.tv.feedbackconsent
+com.android.adservices.api
+com.android.ondevicepersonalization.services
+com.android.federatedcompute.services
+com.google.android.apps.tv.dreamx
+
+# --- Preloaded apps not used here (user choice) ---
+com.google.android.videos
+com.google.android.play.games
+com.google.android.marvin.talkback
+
+# --- Frees the HOME slot for the custom launcher (install the launcher first) ---
+com.google.android.tungsten.setupwraith

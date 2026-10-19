@@ -7,18 +7,21 @@
 -->
 <resources>
 
-    <!-- Apps pinned to the dock row at the bottom, in this order. Missing apps are skipped. -->
+    <!-- Apps pinned to the dock row at the bottom, in this order. Missing apps are skipped.
+         TCL G13: YouTube, Apple TV, Disney+ Hotstar, Prime Video. -->
     <string-array name="dock_apps">
-        <item>com.netflix.ninja</item>
-        <item>com.amazon.amazonvideo.livingroom</item>
         <item>com.google.android.youtube.tv</item>
+        <item>com.apple.atve.androidtv.appletv</item>
         <item>in.startv.hotstar</item>
+        <item>com.amazon.amazonvideo.livingroom</item>
     </string-array>
 
-    <!-- Apps never shown as tiles (e.g. the Live TV app, which the Inputs menu already covers). -->
+    <!-- Apps never shown as tiles: Live TV and the TV's quick panel are covered by the Inputs pill,
+         and Settings has its own pill in the top bar. -->
     <string-array name="hidden_apps">
         <item>com.mediatek.wwtv.tvcenter</item>
-        <item>com.mitv.gallery</item>
+        <item>com.tcl.suspension</item>
+        <item>com.android.tv.settings</item>
     </string-array>
 
     <!-- The TV's Live TV / tuner app, offered at the end of the Inputs menu. Leave empty to omit. -->
