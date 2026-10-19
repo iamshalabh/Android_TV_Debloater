@@ -5,7 +5,7 @@ Day-to-day instructions now live in `tv-setup\README.md`; this file is the build
 
 ## Device
 - TCL Google TV, `ro.product.device=G13`, MediaTek mt5867, Android 14 (SDK 34), ~950 MB RAM (`ro.config.low_ram=true`)
-- IP **192.168.1.8:5555** (Wi-Fi SSID `204_5G`), MAC 0c:79:55:3c:d0:31
+- IP **192.168.1.8:5555** (Wi-Fi SSID `204_5G`; MAC address removed — it identifies the hardware)
 - Stock launcher: `com.google.android.apps.tv.launcherx` (Google TV)
 - Live TV app: `com.mediatek.wwtv.tvcenter` | Inputs: HDMI 1, HDMI 2, AV, VGA, tuner
 - ADB "Allow USB debugging?" was already accepted (key at `tv-vibehack/tools/adbkey`)
